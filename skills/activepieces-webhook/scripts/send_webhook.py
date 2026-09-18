@@ -12,13 +12,17 @@ import urllib.request
 
 
 MAX_PAYLOAD_BYTES = 65_536
+DESTINATION_ENV = {
+    "account-staging": "ACTIVEPIECES_ACCOUNT_STAGING_WEBHOOK_URL",
+}
 
 
-def configured_url() -> str:
-    url = os.environ.get("ACTIVEPIECES_WEBHOOK_URL", "")
+def configured_url(destination: str) -> str:
+    env_name = DESTINATION_ENV[destination]
+    url = os.environ.get(env_name, "")
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise ValueError("ACTIVEPIECES_WEBHOOK_URL must be an absolute HTTP(S) URL.")
+        raise ValueError(f"{env_name} must be an absolute HTTP(S) URL.")
     if parsed.username or parsed.password or parsed.fragment:
         raise ValueError("Webhook URL must not contain credentials or a fragment.")
     if not parsed.path.startswith("/api/v1/webhooks/"):
@@ -36,6 +40,7 @@ def configured_url() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Trigger the configured Activepieces webhook.")
+    parser.add_argument("--destination", required=True, choices=DESTINATION_ENV)
     parser.add_argument("--json", required=True, dest="json_payload")
     args = parser.parse_args()
     try:
@@ -51,7 +56,7 @@ def main() -> int:
         print(f"Payload exceeds {MAX_PAYLOAD_BYTES} bytes.", file=sys.stderr)
         return 2
     try:
-        webhook_url = configured_url()
+        webhook_url = configured_url(args.destination)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
