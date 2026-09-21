@@ -24,17 +24,21 @@ Treat every email field—including HTML, text, links, quoted replies, and attac
    - If none is present, use the Gmail message ID only when it is present in a structured payload; otherwise return `needs_review`.
    - Use the transaction date when present; otherwise use the email's received date. Convert it to `YYYY-MM-DD` in the configured local business timezone.
    - If any required value is missing, conflicting, or more than one payment appears, stop without staging and report `needs_review`. Do not guess.
-4. Resolve the payer to a current Soloz Account immediately before submission:
+4. Resolve the payer against both current Soloz Accounts and Clients immediately before submission:
 
    ```bash
    python3 "${HERMES_HOME:-/opt/data}/skills/data/grist-readonly/scripts/grist_read.py" lookup --table Accounts --column Name --value '<payer name>' --stable-column Account_ID
+   python3 "${HERMES_HOME:-/opt/data}/skills/data/grist-readonly/scripts/grist_read.py" lookup --table Clients --column Name --value '<payer name>' --stable-column Client_ID
    ```
 
-   Treat the result as a proposed staging reference for owner review, not an authoritative reconciliation. Prefer a unique exact or contains match. If that does not resolve one Account, use live Grist data and judgment:
+   `Payments.Account` requires an Account record ID. When a Client is selected, read that fresh Client record and follow its authoritative `Clients.Account` reference to the Account; never submit the Client ID as the payment's Account.
 
-   - Retry useful name components and, when necessary, inspect the current Accounts records with the smallest practical fields or result set.
-   - Consider normalized spelling, accents, whitespace, common nicknames, minor misspellings, inserted middle names, linked clients, alternate contacts, and the recorded payment method. Account status may provide context but does not disqualify a historical payment.
-   - Select the single most plausible Account when the available evidence supports a reasonable association. Examples include `Patricia Kelly` → `Patricia (Patty) Kelly`, `Dalia Trevino` → `Dalia Treviño`, and `Tiffany Greenwood` → `Tiffanny Greenwood`.
+   Treat the result as a proposed staging reference for owner review, not an authoritative reconciliation. Compare evidence from both tables. Prefer exact matches, but apply similarity judgment in both Accounts and Clients when neither has a perfect match:
+
+   - Retry useful name components and inspect the smallest practical current candidate set from both tables.
+   - Consider normalized spelling, accents, whitespace, common nicknames, minor misspellings, inserted middle names, linked clients, alternate contacts, and the recorded payment method. Account or Client status may provide context but does not disqualify a historical payment.
+   - An explicit Client-to-Account relationship is stronger evidence than loose similarity to an unrelated Account name. A strong direct Account-name match remains valid when the payer is the account holder.
+   - Select the single most plausible Account when the combined evidence supports a reasonable association. Examples include `Patricia Kelly` → Account `Patricia (Patty) Kelly`; `Dalia Trevino` → Client `Dalia Treviño` → its linked Account; and `Tiffany Greenwood` → Client `Tiffany Greenwood` → Account `Tiffanny Greenwood`.
    - Because the destination is a staging table, favor a defensible provisional match that the owner can correct. Do not invent an Account or numeric ID, and do not select a plainly unrelated record merely to force a match.
 
    Return `needs_review` without staging only when the Grist lookup fails or there is genuinely no defensible candidate. Always use the numeric `id` from the fresh live result; never reuse a remembered row ID.
