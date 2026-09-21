@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -44,6 +45,12 @@ def offset(value: str) -> int:
     return parsed
 
 
+def non_empty_text(value: str) -> str:
+    if not value.strip():
+        raise argparse.ArgumentTypeError("Lookup value must not be empty.")
+    return value
+
+
 def filter_object(value: str) -> dict:
     try:
         parsed = json.loads(value)
@@ -80,6 +87,21 @@ def parser() -> argparse.ArgumentParser:
     record = commands.add_parser("record", help="Get one record by numeric ID.")
     record.add_argument("--table", required=True, type=identifier)
     record.add_argument("--id", required=True, type=positive_record_id)
+    lookup = commands.add_parser(
+        "lookup",
+        help="Find minimal record references by a human-readable or stable value.",
+    )
+    lookup.add_argument("--table", required=True, type=identifier)
+    lookup.add_argument("--column", required=True, type=identifier)
+    lookup.add_argument("--value", required=True, type=non_empty_text)
+    lookup.add_argument("--stable-column", type=identifier)
+    lookup.add_argument("--limit", type=record_limit, default=MAX_RECORDS)
+    lookup.add_argument(
+        "--fallback",
+        choices=("none", "contains"),
+        default="contains",
+        help="Fallback after no normalized exact match (default: contains).",
+    )
     return root
 
 
@@ -119,14 +141,7 @@ def request_path(args: argparse.Namespace, doc_id: str) -> tuple[str, dict[str, 
     return f"{root}/{table}/records", query
 
 
-def main() -> int:
-    args = parser().parse_args()
-    try:
-        base_url, doc_id, api_key = load_configuration()
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    path, query = request_path(args, doc_id)
+def get_json(base_url: str, path: str, query: dict[str, str], api_key: str) -> dict:
     url = base_url + path
     if query:
         url += "?" + urllib.parse.urlencode(query)
@@ -135,9 +150,83 @@ def main() -> int:
         method="GET",
         headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"},
     )
+    with urllib.request.urlopen(request, timeout=20) as response:
+        return json.load(response)
+
+
+def normalized(value: object) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "")).casefold()
+    text = "".join(character for character in text if not unicodedata.combining(character))
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
+
+
+def minimal_matches(
+    records: list[dict], column: str, stable_column: str | None, value: str, mode: str
+) -> list[dict]:
+    wanted = normalized(value)
+    matches = []
+    for record in records:
+        fields = record.get("fields", {})
+        candidate = normalized(fields.get(column))
+        is_match = candidate == wanted if mode == "exact" else wanted in candidate
+        if not is_match:
+            continue
+        match = {"id": record.get("id"), "value": fields.get(column)}
+        if stable_column:
+            match["stable_value"] = fields.get(stable_column)
+        matches.append(match)
+    return matches
+
+
+def lookup_records(
+    args: argparse.Namespace, base_url: str, doc_id: str, api_key: str
+) -> dict:
+    table = urllib.parse.quote(args.table, safe="")
+    path = f"/api/docs/{doc_id}/tables/{table}/records"
+    exact_query = {
+        "limit": str(args.limit),
+        "filter": json.dumps({args.column: [args.value]}, separators=(",", ":")),
+    }
+    exact_result = get_json(base_url, path, exact_query, api_key)
+    matches = minimal_matches(
+        exact_result.get("records", []),
+        args.column,
+        args.stable_column,
+        args.value,
+        "exact",
+    )
+    if matches:
+        return {"match_type": "exact", "matches": matches}
+
+    all_result = get_json(base_url, path, {"limit": str(args.limit)}, api_key)
+    records = all_result.get("records", [])
+    matches = minimal_matches(
+        records, args.column, args.stable_column, args.value, "exact"
+    )
+    if matches:
+        return {"match_type": "exact", "matches": matches}
+    if args.fallback == "contains":
+        matches = minimal_matches(
+            records, args.column, args.stable_column, args.value, "contains"
+        )
+        if matches:
+            return {"match_type": "contains", "matches": matches}
+    return {"match_type": "none", "matches": []}
+
+
+def main() -> int:
+    args = parser().parse_args()
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            result = json.load(response)
+        base_url, doc_id, api_key = load_configuration()
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    try:
+        if args.operation == "lookup":
+            result = lookup_records(args, base_url, doc_id, api_key)
+        else:
+            path, query = request_path(args, doc_id)
+            result = get_json(base_url, path, query, api_key)
     except urllib.error.HTTPError as exc:
         print(f"Grist returned HTTP {exc.code}.", file=sys.stderr)
         return 1

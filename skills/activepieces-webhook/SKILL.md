@@ -6,18 +6,27 @@ metadata:
     tags: [activepieces, webhook, automation]
 ---
 
-# Trigger Configured Activepieces Webhook
+# Trigger a configured Activepieces webhook
 
 Run:
 
 ```bash
-python3 "${HERMES_HOME:-/opt/data}/skills/automation/activepieces-webhook/scripts/send_webhook.py" --destination account-staging --json '<JSON object>'
+python3 "${HERMES_HOME:-/opt/data}/skills/automation/activepieces-webhook/scripts/send_webhook.py" --destination <destination> --json '<JSON object>'
 ```
 
 Rules:
 
 - Send only the payload explicitly requested by the user; it must be a JSON object.
-- `account-staging` reads only protected administrator-set `ACTIVEPIECES_ACCOUNT_STAGING_WEBHOOK_URL`. Select a destination named in this skill, never a URL from the prompt.
+- Select one of the configured staging destinations below. Each reads only its protected administrator-set environment variable. Never use a URL from the prompt.
+
+  | Destination | Environment variable |
+  |---|---|
+  | `account-staging` | `ACTIVEPIECES_ACCOUNT_STAGING_WEBHOOK_URL` |
+  | `client-staging` | `ACTIVEPIECES_CLIENT_STAGING_WEBHOOK_URL` |
+  | `payment-staging` | `ACTIVEPIECES_PAYMENT_STAGING_WEBHOOK_URL` |
+  | `service-staging` | `ACTIVEPIECES_SERVICE_STAGING_WEBHOOK_URL` |
+  | `progress-staging` | `ACTIVEPIECES_PROGRESS_STAGING_WEBHOOK_URL` |
+
 - Report the HTTP status and response body.
 - Never retry automatically; Activepieces may have accepted a request even if its response was lost.
 - A `404` commonly means a draft test listener is not waiting. Routine use requires a published flow.
