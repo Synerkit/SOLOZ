@@ -12,8 +12,8 @@ Interpret one calendar event delivered by the authenticated Hermes `/webhooks/ap
 
 ## Workflow
 
-1. Extract Start Time, Map ID, Event Caledar ID, and any name supplied in the `Client` field from the calendar title. The final ID label is misspelled in the current Activepieces concatenator; accept `Event Calendar ID` as well. A missing name is allowed. The event ID must be nonempty and stable across updates. If the event ID, time, or Map ID is missing or contradictory, return `failed` without staging because the source event cannot be identified or dated reliably.
-2. Parse Start Time with its explicit offset and derive `Service_Date` from the event's local calendar date. Do not derive the date from the UTC date when that changes the local day. If the event is in the future, do not stage it through this service-outcome skill.
+1. Extract Service Date, Map ID, Event Caledar ID, and any name supplied in the `Client` field from the calendar title. The final ID label is misspelled in the current Activepieces concatenator; accept `Event Calendar ID` as well. A missing name is allowed. The event ID must be nonempty and stable across updates. If the event ID, date, or Map ID is missing or contradictory, return `failed` without staging because the source event cannot be identified or dated reliably. For backward compatibility, accept the former `Start Time` field when `Service Date` is absent.
+2. Treat `Service Date` as the event end date already converted by Activepieces to the `America/Chicago` calendar date. Require exact `YYYY-MM-DD` form and pass it through unchanged as `Service_Date`; do not require a time or offset. When only legacy `Start Time` is supplied, require an ISO timestamp with an explicit offset and derive the local calendar date as before. If both fields are present, use `Service Date`. If the resulting service date is in the future, do not stage it through this service-outcome skill.
 3. Map the exact Map ID to the live Grist `Service_Status` choice:
    - `93195fab-638d-4f79-a561-79523b4e205c` → `Present`
    - `6e1fcca8-c580-4fed-92aa-b5a91b6f9308` → `No Show`
