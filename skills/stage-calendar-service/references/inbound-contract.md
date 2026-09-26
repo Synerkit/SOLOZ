@@ -24,6 +24,7 @@ Legacy `Start Time` must include an explicit offset so Hermes can derive its loc
 | `93195fab-638d-4f79-a561-79523b4e205c` | Present / Attended | `Present` |
 | `6e1fcca8-c580-4fed-92aa-b5a91b6f9308` | No Show | `No Show` |
 | `dede1349-e1b4-4635-874c-398737378239` | Same-Day Cancel | `Same-day cancel` |
+| `506CF18C-FFF5-4539-8C71-7B82BB77FC5A` | Singing Event | `Event`; send `Event_Fee: null` for owner review |
 | `0285c3b2-5ec3-4667-ac04-eee55f04a922` | Available | Send `Service_Status: null` for a past event |
 
 Two other calendar colors are reserved for future reminder work and are outside this skill.
@@ -31,5 +32,7 @@ Two other calendar colors are reserved for future reminder work and are outside 
 The current body contains no event update timestamp or version. Replacement therefore follows arrival order; an older event notification delivered later could overwrite a newer unreviewed staging row. When the calendar router can supply the source event's `updated` timestamp, include it as a labeled field before event text and have Activepieces reject an older version for the same event ID. Until then, do not claim out-of-order safety.
 
 For a past Appointment or Available event, submit the same event ID with `Service_Status: null`. The explicit null clears an old status when the matching unreviewed staging row is updated, and Grist's validation should require the owner to choose a status before promotion. Do not delete the row or leave its prior outcome. Once reviewed, a later update creates a new review item instead of changing the reviewed row.
+
+The calendar payload does not include a singing-event fee. For Map ID `506CF18C-FFF5-4539-8C71-7B82BB77FC5A`, submit `Service_Status: "Event"`, `Event_Fee: null`, and a concise `Notes` explanation that the owner must enter the event fee before promotion. The explicit null clears a previous fee when the matching unreviewed staging row is updated.
 
 Hermes's `202 Accepted` confirms only that an asynchronous run began. Verify the staging result in Grist after controlled tests.

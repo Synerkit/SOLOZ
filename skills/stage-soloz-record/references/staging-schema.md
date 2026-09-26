@@ -55,7 +55,7 @@ For payment-email staging, add `Email_ID` as the stable source message ID and co
 
 - For a direct user request, required input is client, service date, and service status; event fee is required only for status `Event`
 - For a calendar-derived service, a missing or unresolvable client is allowed in staging. Search current Clients and Accounts for a defensible Client match; if none can be inferred, send `Client: null` and explain it briefly in `Notes`. Grist validation holds the row until the owner fills Client.
-- For a calendar-derived service, `Event_Calendar_ID` is required. A past event colored Appointment or Available sends `Service_Status: null` so an existing unreviewed status is cleared and Grist flags the row for owner review. The calendar color `Same-Day Cancel` maps to Grist's exact choice `Same-day cancel`.
+- For a calendar-derived service, `Event_Calendar_ID` is required. A past event colored Appointment or Available sends `Service_Status: null` so an existing unreviewed status is cleared and Grist flags the row for owner review. The calendar color `Same-Day Cancel` maps to Grist's exact choice `Same-day cancel`. Singing-event Map ID `506CF18C-FFF5-4539-8C71-7B82BB77FC5A` maps to `Event`; because the calendar input has no fee, send `Event_Fee: null` and explain in `Notes` that the owner must enter it.
 - Destination: `service-staging`
 - Resolve client against `Clients`
 - When status is not `Event` and no event fee is supplied, send numeric `0`; Grist calculates the normal service charge from the client's account, rate category, and effective rate price
@@ -66,7 +66,7 @@ For payment-email staging, add `Email_ID` as the stable source message ID and co
 
 Replace the first `0` with the client's numeric Grist `id`. Replace the second with the supplied event fee for an `Event`; otherwise use the supplied value or numeric `0` when omitted.
 
-For calendar staging, add `Event_Calendar_ID` as the stable calendar event ID. Keep the same value across updates, even when the service date, client, or status changes. The live practice_900 table names this column `Event_Calendar_ID`, not `Event_ID`. Send JSON `null` for `Client` when no defensible Client can be inferred and for `Service_Status` when a past Appointment or Available event has no service outcome. Omission would leave old values in place during an update. Never send a made-up reference, choice, or empty string as a substitute.
+For calendar staging, add `Event_Calendar_ID` as the stable calendar event ID. Keep the same value across updates, even when the service date, client, or status changes. The live practice_900 table names this column `Event_Calendar_ID`, not `Event_ID`. Send JSON `null` for `Client` when no defensible Client can be inferred, for `Service_Status` when a past Appointment or Available event has no service outcome, and for `Event_Fee` when a calendar color maps to `Event` without supplying a fee. Omission would leave old values in place during an update. Never send a made-up reference, choice, or empty string as a substitute.
 
 ## Source-based staging replacement
 
