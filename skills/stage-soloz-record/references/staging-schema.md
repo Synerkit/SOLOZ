@@ -14,26 +14,54 @@ Accept a stable `Account_ID` or `Client_ID` directly when the user supplies one,
 
 ## Account
 
-- Required input: name, email
+- Minimum required input: name, email
+- Supported optional input: cell phone, address, payment method, discount, status, notes
 - Destination: `account-staging`
 - No reference lookup
+- Exact optional column IDs: `Cell_Phone`, `Address`, `Payment_Method`, `Discount`, `Status`, `Notes`
+- `Payment_Method` must be one of `Cash`, `Venmo`, `Zelle`, or `Other`
+- `Status` must be `Active` or `Inactive`
+- `Discount` is stored as a decimal percentage: `10%` becomes JSON number `0.10`. Ask for clarification when a bare number is ambiguous.
+- Preserve phone numbers as text. Do not coerce them to JSON numbers.
+- Omit any optional key the user did not supply; do not fill it with an empty string or an assumed default.
 
 ```json
 {"table_columns":{"Name":"<name>","Email":"<email>"}}
 ```
 
+When optional values are supplied, include them in the same object:
+
+```json
+{"table_columns":{"Name":"<name>","Email":"<email>","Cell_Phone":"<phone>","Address":"<address>","Payment_Method":"Zelle","Discount":0.1,"Status":"Active","Notes":"<notes>"}}
+```
+
 ## Client
 
-- Required input: name, account, rate category
+- Minimum required input: name, account, rate category
+- Supported optional input: status, starting date, date of birth, email, cell phone, Telegram, address, same as account, notes
 - Destination: `client-staging`
 - Resolve account against `Accounts`
 - Resolve rate category against `Rate_Categories`
+- Exact optional column IDs: `Status`, `Starting_Date`, `DOB`, `Email`, `Cell_Phone`, `Telegram`, `Address`, `Same_as_account`, `Notes`
+- `Status` must be `Active` or `Inactive`
+- Normalize `Starting_Date` and `DOB` to `YYYY-MM-DD`
+- `Same_as_account` must be a JSON boolean. It does not replace the required Account lookup.
+- Preserve phone numbers and Telegram handles as text. Do not invent contact values from the linked Account merely because `Same_as_account` is true.
+- Omit any optional key the user did not supply; do not fill it with an empty string or an assumed default.
 
 ```json
 {"table_columns":{"Name":"<name>","Account":0,"Rate_Category":0}}
 ```
 
 Replace each `0` with the matching record's numeric Grist `id`.
+
+When optional values are supplied, include them in the same object:
+
+```json
+{"table_columns":{"Name":"<name>","Account":0,"Rate_Category":0,"Status":"Active","Starting_Date":"2026-10-17","DOB":"2012-05-10","Email":"<email>","Cell_Phone":"<phone>","Telegram":"<handle>","Address":"<address>","Same_as_account":true,"Notes":"<notes>"}}
+```
+
+The example dates and values illustrate types only. Use only values provided by the user and fresh numeric reference IDs from Grist.
 
 ## Payment
 
