@@ -112,12 +112,22 @@ Do not infer a staging write from a webhook response alone. Verify a controlled 
 
 ## Progress
 
-- Required input: client, date, progress
+- Minimum required input: client, date, progress
+- Supported optional input: subject
 - Destination: `progress-staging`
 - Resolve client against `Clients`
+- The exact optional column ID is `Subject`; preserve the supplied subject as text.
+- Omit `Subject` when the user does not supply it. Do not ask for it merely because it is absent.
+- `Subject` must be a writable Text column. If a fresh `grist-readonly columns --table Progress_Staging` result reports it as a formula column, do not submit it; report that the Grist column must be converted to a non-formula Text column.
 
 ```json
 {"table_columns":{"Client":0,"Date":"<YYYY-MM-DD>","Progress":"<progress>"}}
 ```
 
 Replace `0` with the client's numeric Grist `id`.
+
+When the user supplies a subject, include it in the same object:
+
+```json
+{"table_columns":{"Client":0,"Date":"<YYYY-MM-DD>","Progress":"<progress>","Subject":"<subject>"}}
+```
